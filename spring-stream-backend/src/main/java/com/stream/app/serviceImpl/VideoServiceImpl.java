@@ -27,6 +27,9 @@ public class VideoServiceImpl implements VideoService{
 	@Value("${files.video}")
 	String DIR;
 	
+	@Value("${file.video.hsl}")
+	String HSL_DIR;
+	
 	@Autowired
 	private VideoRepository videorepo;
 	
@@ -39,6 +42,15 @@ public class VideoServiceImpl implements VideoService{
 	@PostConstruct
 	public void init() {
 	File file = new File(DIR);
+	
+	File file1 = new File(HSL_DIR);
+	
+	if(!file1.exists()) {
+		file1.mkdir();
+		System.out.println("Folder created");
+	}else {
+		System.out.println("Folder already created");
+	}
 	
 	if(!file.exists()) {
 		file.mkdir();
@@ -113,5 +125,40 @@ public class VideoServiceImpl implements VideoService{
 		
 		return videorepo.findAll();
 	}
+//-------------------------------------------------------------------------------------------------
+	
+	public String processVideo(String videoId) {
+	    // Retrieve the video object
+	    Video video = this.get(videoId);
+	    if (video == null) {
+	        throw new IllegalArgumentException("Video with ID " + videoId + " not found");
+	    }
+
+	    // Retrieve the file path of the video
+	    String filePath = video.getFilePath();
+	    if (filePath == null || filePath.isEmpty()) {
+	        throw new IllegalArgumentException("Invalid file path for video ID " + videoId);
+	    }
+
+	    // Construct paths for different resolutions
+	    Path videoPath = Paths.get(filePath);
+	    String output360p = Paths.get(HSL_DIR, videoId, "360p").toString();
+	    String output720p = Paths.get(HSL_DIR, videoId, "720p").toString();
+	    String output1080p = Paths.get(HSL_DIR, videoId, "1080p").toString();
+
+	    try {
+	        Files.createDirectories(Paths.get(output360p));
+	        Files.createDirectories(Paths.get(output720p));
+	        Files.createDirectories(Paths.get(output1080p));
+	    } catch (IOException ex) {
+	        throw new RuntimeException("Failed to create directories for video processing: " + ex.getMessage(), ex);
+	    }
+
+	    // TODO: Continue processing the video, e.g., transcoding, splitting, etc.
+
+	    // Return a meaningful result, e.g., the base path where the video was processed
+	    return HSL_DIR + videoId;
+	}
+
 
 }
