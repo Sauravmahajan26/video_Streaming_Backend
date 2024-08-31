@@ -10,6 +10,8 @@ import java.util.UUID;
 
 import org.aspectj.apache.bcel.classfile.Module.Require;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.AbstractFileResolvingResource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.InputStreamResource;
@@ -183,5 +185,49 @@ public class VideoController {
 	
 		}
 	
+	
+	//server hls playlist 
+	
+	@Value("${file.video.hsl}")
+	private String HSL_DIR;
+	
+	@GetMapping("/{videoId}/master.m3u8")
+	public ResponseEntity<Resource> serveMasterFile(
+			@PathVariable String videoId
+			){
+		//creating path
+		Path path = Paths.get(HSL_DIR,videoId, "master.m3u8");
+		
+		System.out.println(path);
+		
+		if(!Files.exists(path)) {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+		
+		Resource resource = new FileSystemResource(path);
+		
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_TYPE,"application/vnd.apple.mpegurl").body(resource);
+		
+	}
+	
+	//serve the segments 
+	@GetMapping("/{videoId}/{segment}.ts")
+	public ResponseEntity<Resource> serveSegment(
+			@PathVariable String videoId,
+			@PathVariable String segment
+			){
+		
+		Path path = Paths.get(HSL_DIR,videoId,segment +".ts");
+		if(!Files.exists(path)) {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+		
+		Resource resource = new FileSystemResource(path);
+		 return ResponseEntity.ok().header(
+				 HttpHeaders.CONTENT_TYPE,"video/mp2t"
+				 ).body(resource);
+		
+		
+	}
 	
 }

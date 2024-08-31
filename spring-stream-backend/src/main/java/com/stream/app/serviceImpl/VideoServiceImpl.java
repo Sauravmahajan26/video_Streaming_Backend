@@ -93,6 +93,10 @@ public class VideoServiceImpl implements VideoService{
 		video.setContentType(contentType);
 		video.setFilePath(normalizedPath);	
 	
+		processVideo(video.getVideoId());
+		
+		//delete video if any error occure while processing and delete database entry
+		
 		
 		//meta data save to db
 		return videorepo.save(video);
@@ -127,6 +131,55 @@ public class VideoServiceImpl implements VideoService{
 	}
 //-------------------------------------------------------------------------------------------------
 	
+//	public String processVideo(String videoId) {
+//	    // Retrieve the video object
+//	    Video video = this.get(videoId);
+//	    if (video == null) {
+//	        throw new IllegalArgumentException("Video with ID " + videoId + " not found");
+//	    }
+//
+//	    // Retrieve the file path of the video
+//	    String filePath = video.getFilePath();
+//	    if (filePath == null || filePath.isEmpty()) {
+//	        throw new IllegalArgumentException("Invalid file path for video ID " + videoId);
+//	    }
+//
+//	    // Construct paths for different resolutions
+//	    Path videoPath = Paths.get(filePath);
+////	   
+//	    try {
+////	        
+//	        Path outPutPath = Paths.get(HSL_DIR,videoId);
+//	        
+//	        Files.createDirectories(outPutPath);
+//	        
+//	        String ffmpegCmd = String.format("ffmpeg -i \"%s\" -c:v libx264 -c:a aac -strict -2 -f hls -hls_time 10 -hls_list_size 0 -hls_segment_filname \"%s/segment_%%3d.ts\" \"%s/master.m3u8\" ",videoPath,outPutPath,outPutPath);
+//	        
+//	        ProcessBuilder processBuilder = new ProcessBuilder("/bin/bash","-c",ffmpegCmd);
+//	        processBuilder.inheritIO();
+//	        try {
+//				Process process = ProcessBuilder.start();
+//				int exit = process.waitFor();
+//				if(exit != 0 ) {
+//					throw new RuntimeException("Video process failed");
+//				}
+//			return videoId;
+//	        
+//	        
+//	        
+//	        
+//	    } catch (IOException ex) {
+//	        throw new RuntimeException("Failed to create directories for video processing: " + ex.getMessage(), ex);
+//	    }
+//	    } catch (InterruptedException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//			new RuntimeException(e);
+//		}
+//
+//
+//	    return HSL_DIR + videoId;
+//	}
 	public String processVideo(String videoId) {
 	    // Retrieve the video object
 	    Video video = this.get(videoId);
@@ -142,23 +195,42 @@ public class VideoServiceImpl implements VideoService{
 
 	    // Construct paths for different resolutions
 	    Path videoPath = Paths.get(filePath);
-	    String output360p = Paths.get(HSL_DIR, videoId, "360p").toString();
-	    String output720p = Paths.get(HSL_DIR, videoId, "720p").toString();
-	    String output1080p = Paths.get(HSL_DIR, videoId, "1080p").toString();
-
+	   
 	    try {
-	        Files.createDirectories(Paths.get(output360p));
-	        Files.createDirectories(Paths.get(output720p));
-	        Files.createDirectories(Paths.get(output1080p));
+	        Path outPutPath = Paths.get(HSL_DIR, videoId);
+	        Files.createDirectories(outPutPath);
+
+	        // Construct the ffmpeg command
+	        String ffmpegCmd = String.format("ffmpeg -i \"%s\" -c:v libx264 -c:a aac -strict -2 -f hls -hls_time 10 -hls_list_size 0 -hls_segment_filename \"%s/segment_%%3d.ts\" \"%s/master.m3u8\"",
+	                                         videoPath, outPutPath, outPutPath);
+
+	        String[] command;
+	        if (System.getProperty("os.name").toLowerCase().contains("win")) {
+	            command = new String[]{"cmd.exe", "/c", ffmpegCmd};
+	        } else {
+	            command = new String[]{"/bin/bash", "-c", ffmpegCmd};
+	        }
+	        
+	        // Initialize and start the process
+	        ProcessBuilder processBuilder = new ProcessBuilder(command);
+	        processBuilder.inheritIO();
+	        Process process = processBuilder.start();
+	        int exitCode = process.waitFor();
+	        
+	        if (exitCode != 0) {
+	            throw new RuntimeException("Video processing failed with exit code " + exitCode);
+	        }
+
+	        return videoId;
+
 	    } catch (IOException ex) {
-	        throw new RuntimeException("Failed to create directories for video processing: " + ex.getMessage(), ex);
+	        throw new RuntimeException("Failed to create directories or start the video processing process: " + ex.getMessage(), ex);
+	    } catch (InterruptedException ex) {
+	        Thread.currentThread().interrupt(); // Restore interrupted state
+	        throw new RuntimeException("Video processing was interrupted: " + ex.getMessage(), ex);
 	    }
-
-	    // TODO: Continue processing the video, e.g., transcoding, splitting, etc.
-
-	    // Return a meaningful result, e.g., the base path where the video was processed
-	    return HSL_DIR + videoId;
 	}
+
 
 
 }
